@@ -1,5 +1,5 @@
 // работа со структурами и указателями
-package main
+package utils
 
 type Student struct {
 	Name  string  `json: "name"`

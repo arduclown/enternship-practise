@@ -5,9 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
+
+	"github.com/arduclown/enternship-practise/utils"
 )
 
-var baseStud = []Student{
+var baseStud = []utils.Student{
 	{Name: "Ann", Age: 16, Grade: 3.85},
 	{Name: "Anton", Age: 16, Grade: 4},
 	{Name: "Bob", Age: 17, Grade: 5},
@@ -41,15 +44,27 @@ func students(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
+// вывод списка студентов, у которых ср. балл не ниже минимума
+func grade(w http.ResponseWriter, req *http.Request) {
+	grade := req.URL.Query().Get("min")
+	w.Header().Set("Content-Type", "application/json")
+	g, err := strconv.ParseFloat(grade, 64)
+	if err != nil {
+		http.Error(w, "Failed to encode json", http.StatusInternalServerError)
+		return
+	}
+	for _, s := range baseStud {
+		if s.Grade >= g {
+			json.NewEncoder(w).Encode(s)
+		}
+	}
+}
+
 func main() {
 	http.HandleFunc("/hello", hello)
 	http.HandleFunc("/student", student)
 	http.HandleFunc("/students", students)
+	http.HandleFunc("/students/grade", grade)
 
 	http.ListenAndServe(":8080", nil)
-
-	// nums := []int{1, 2, 3, 4, 5}
-	// ReverseArray(nums)
-	// fmt.Println(nums)
-
 }
