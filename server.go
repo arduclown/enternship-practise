@@ -31,7 +31,10 @@ func student(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 	}
-	json.NewEncoder(w).Encode(map[string]string{"error": "Student not found"})
+	if err := json.NewEncoder(w).Encode(map[string]string{"error": "Student not found"}); err != nil {
+		http.Error(w, "Failed to encode json", http.StatusInternalServerError)
+		return
+	}
 
 }
 
@@ -49,15 +52,17 @@ func grade(w http.ResponseWriter, req *http.Request) {
 	grade := req.URL.Query().Get("min")
 	w.Header().Set("Content-Type", "application/json")
 	g, err := strconv.ParseFloat(grade, 64)
+	filtred := []utils.Student{}
 	if err != nil {
-		http.Error(w, "Failed to encode json", http.StatusInternalServerError)
+		http.Error(w, "Invalid grade parameter", http.StatusBadRequest)
 		return
 	}
 	for _, s := range baseStud {
 		if s.Grade >= g {
-			json.NewEncoder(w).Encode(s)
+			filtred = append(filtred, s)
 		}
 	}
+	json.NewEncoder(w).Encode(filtred)
 }
 
 func main() {
