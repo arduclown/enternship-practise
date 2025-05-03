@@ -71,5 +71,7 @@ func main() {
 	http.HandleFunc("/students", students)
 	http.HandleFunc("/students/grade", grade)
 
+	utils.LoadStudentFromFile(&baseStud)
+
 	http.ListenAndServe(":8080", nil)
 }

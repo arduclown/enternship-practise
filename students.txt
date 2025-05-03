@@ -1,0 +1,5 @@
+[{"name": "Alex", "age": 16, "grade": 3.0},
+{"name": "Mike", "age": 16, "grade": 2.0},
+{"name": "Jane", "age": 17, "grade": 4.75},
+{"name": "Elizhabet", "age": 16, "grade": 5.0},
+{"name": "Marina", "age": 15, "grade": 4.0}]
