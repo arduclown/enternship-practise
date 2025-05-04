@@ -24,3 +24,12 @@ func LoadStudentFromFile(students *[]Student) {
 
 	*students = newStudents
 }
+
+func SaveToFile(students []Student) {
+	f, err := os.Create("./new_stud.txt")
+	check(err)
+	defer f.Close()
+
+	encoder := json.NewEncoder(f)
+	encoder.Encode(students)
+}

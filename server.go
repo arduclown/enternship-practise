@@ -23,6 +23,10 @@ func hello(w http.ResponseWriter, req *http.Request) {
 
 // вывод студента по ИМЕНИ
 func student(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
 	name := req.URL.Query().Get("name")
 	w.Header().Set("Content-Type", "application/json")
 	for _, s := range baseStud {
@@ -40,6 +44,10 @@ func student(w http.ResponseWriter, req *http.Request) {
 
 // вывод списка ВСЕХ студентов
 func students(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(baseStud); err != nil {
 		http.Error(w, "Failed to encode json", http.StatusInternalServerError)
@@ -49,6 +57,11 @@ func students(w http.ResponseWriter, req *http.Request) {
 
 // вывод списка студентов, у которых ср. балл не ниже минимума
 func grade(w http.ResponseWriter, req *http.Request) {
+
+	if req.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
 	grade := req.URL.Query().Get("min")
 	w.Header().Set("Content-Type", "application/json")
 	g, err := strconv.ParseFloat(grade, 64)
@@ -65,13 +78,44 @@ func grade(w http.ResponseWriter, req *http.Request) {
 	json.NewEncoder(w).Encode(filtred)
 }
 
+func addStudent(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	var student utils.Student
+	if err := json.NewDecoder(req.Body).Decode(&student); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+	defer req.Body.Close()
+
+	baseStud = append(baseStud, student)
+	utils.SaveToFile(baseStud)
+
+	if err := json.NewEncoder(w).Encode(map[string]string{"message": "Student added"}); err != nil {
+		http.Error(w, "Failed to encode json", http.StatusInternalServerError)
+		return
+	}
+
+}
+
 func main() {
 	http.HandleFunc("/hello", hello)
 	http.HandleFunc("/student", student)
 	http.HandleFunc("/students", students)
 	http.HandleFunc("/students/grade", grade)
+	http.HandleFunc("/student/add", addStudent)
 
 	utils.LoadStudentFromFile(&baseStud)
+
+	if err := utils.InitDB(); err != nil {
+		fmt.Printf("Failed to initialize database: %v\n", err)
+		return
+	}
 
 	http.ListenAndServe(":8080", nil)
 }
