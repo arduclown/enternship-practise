@@ -25,11 +25,6 @@
     "Grade": 4
   },
   {
-    "Name": "Test",
-    "Age": 19,
-    "Grade": 3.5
-  },
-  {
     "Name": "Jane",
     "Age": 15,
     "Grade": 4

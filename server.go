@@ -96,6 +96,11 @@ func addStudent(w http.ResponseWriter, req *http.Request) {
 	baseStud = append(baseStud, student)
 	utils.SaveToFile(baseStud)
 
+	if utils.InsertStudent(student) != nil {
+		http.Error(w, "Failes to save", http.StatusInternalServerError)
+		return
+	}
+
 	if err := json.NewEncoder(w).Encode(map[string]string{"message": "Student added"}); err != nil {
 		http.Error(w, "Failed to encode json", http.StatusInternalServerError)
 		return
