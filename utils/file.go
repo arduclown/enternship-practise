@@ -30,6 +30,7 @@ func SaveToFile(students []Student) {
 	check(err)
 	defer f.Close()
 
-	encoder := json.NewEncoder(f)
-	encoder.Encode(students)
+	data, _ := json.MarshalIndent(students, "", "  ")
+	_, err = f.Write(data)
+	check(err)
 }
