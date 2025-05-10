@@ -49,7 +49,8 @@ func students(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(baseStud); err != nil {
+	base, _ := utils.GetStudents()
+	if err := json.NewEncoder(w).Encode(base); err != nil {
 		http.Error(w, "Failed to encode json", http.StatusInternalServerError)
 		return
 	}
