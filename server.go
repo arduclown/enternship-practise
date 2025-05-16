@@ -31,16 +31,9 @@ func student(w http.ResponseWriter, req *http.Request) {
 	name := req.URL.Query().Get("name")
 	w.Header().Set("Content-Type", "application/json")
 
-	base, err := sql.Open("sqlite3", "students.db")
-	if err != nil {
-		http.Error(w, "Failed to open student", http.StatusInternalServerError)
-		return
-	}
-	defer base.Close()
-
 	var s utils.Student
-	row := base.QueryRow("SELECT name, age, grade FROM students WHERE name = ?", name)
-	err = row.Scan(&s.Name, &s.Age, &s.Grade)
+	row := utils.DB.QueryRow("SELECT name, age, grade FROM students WHERE name = ?", name)
+	err := row.Scan(&s.Name, &s.Age, &s.Grade)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			json.NewEncoder(w).Encode(map[string]string{"error": "Student not found"})
@@ -141,6 +134,7 @@ func main() {
 		fmt.Printf("Failed to initialize database: %v\n", err)
 		return
 	}
+	defer utils.CloseDB()
 
 	http.ListenAndServe(":8080", nil)
 }

@@ -6,35 +6,33 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
+var DB *sql.DB
+
 func InitDB() error {
-	db, err := sql.Open("sqlite3", "./students.db")
+	var err error
+	DB, err = sql.Open("sqlite3", "./students.db")
 	if err != nil {
 		return err
 	}
 
-	_, err = db.Exec("CREATE TABLE IF NOT EXISTS students (name TEXT, age INTEGER, grade REAL)")
+	_, err = DB.Exec("CREATE TABLE IF NOT EXISTS students (name TEXT, age INTEGER, grade REAL)")
 	return err
 }
 
-func InsertStudent(student Student) error {
-	db, err := sql.Open("sqlite3", "./students.db")
-	if err != nil {
-		return err
+func CloseDB() {
+	if DB != nil {
+		DB.Close()
 	}
+}
 
-	defer db.Close()
-	_, err = db.Exec("INSERT INTO students (name, age, grade) VALUES (?, ?, ?)", student.Name, student.Age, student.Grade)
+func InsertStudent(student Student) error {
+	_, err := DB.Exec("INSERT INTO students (name, age, grade) VALUES (?, ?, ?)", student.Name, student.Age, student.Grade)
 	return err
 }
 
 func GetStudents() ([]Student, error) {
-	db, err := sql.Open("sqlite3", "./students.db")
-	if err != nil {
-		return nil, err
-	}
-	defer db.Close()
 
-	rows, err := db.Query("SELECT name, age, grade FROM students")
+	rows, err := DB.Query("SELECT name, age, grade FROM students")
 	if err != nil {
 		return nil, err
 	}
