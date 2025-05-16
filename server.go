@@ -2,6 +2,7 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -29,13 +30,27 @@ func student(w http.ResponseWriter, req *http.Request) {
 	}
 	name := req.URL.Query().Get("name")
 	w.Header().Set("Content-Type", "application/json")
-	for _, s := range baseStud {
-		if s.Name == name {
-			json.NewEncoder(w).Encode(s)
+
+	base, err := sql.Open("sqlite3", "students.db")
+	if err != nil {
+		http.Error(w, "Failed to open student", http.StatusInternalServerError)
+		return
+	}
+	defer base.Close()
+
+	var s utils.Student
+	row := base.QueryRow("SELECT name, age, grade FROM students WHERE name = ?", name)
+	err = row.Scan(&s.Name, &s.Age, &s.Grade)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			json.NewEncoder(w).Encode(map[string]string{"error": "Student not found"})
 			return
 		}
+		http.Error(w, "Failed to get student", http.StatusInternalServerError)
+		return
 	}
-	if err := json.NewEncoder(w).Encode(map[string]string{"error": "Student not found"}); err != nil {
+
+	if err := json.NewEncoder(w).Encode(s); err != nil {
 		http.Error(w, "Failed to encode json", http.StatusInternalServerError)
 		return
 	}
@@ -49,7 +64,11 @@ func students(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	base, _ := utils.GetStudents()
+	base, err := utils.GetStudents()
+	if err != nil {
+		http.Error(w, "Failed to get students", http.StatusInternalServerError)
+		return
+	}
 	if err := json.NewEncoder(w).Encode(base); err != nil {
 		http.Error(w, "Failed to encode json", http.StatusInternalServerError)
 		return
