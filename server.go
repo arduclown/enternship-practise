@@ -7,9 +7,15 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"sync"
 
 	"github.com/arduclown/enternship-practise/utils"
 )
+
+type Response struct {
+	Students []utils.Student `json: "students`
+	AverAge  float64         `json: "average_age"`
+}
 
 var baseStud = []utils.Student{
 	{Name: "Ann", Age: 16, Grade: 3.85},
@@ -56,16 +62,56 @@ func students(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
+
 	base, err := utils.GetStudents()
 	if err != nil {
 		http.Error(w, "Failed to get students", http.StatusInternalServerError)
 		return
 	}
+
+	if len(base) == 0 {
+		w.Header().Set("Content Type", "application/json")
+		json.NewEncoder(w).Encode(Response{Students: []utils.Student{}, AverAge: 0})
+		return
+	}
+
+	ages := make(chan int, len(base))
+	var wg sync.WaitGroup
+
+	for i := range base {
+		wg.Add(1)
+		go func(student utils.Student) {
+			defer wg.Done()
+			ages <- student.Age
+		}(base[i])
+	}
+
+	go func() {
+		wg.Wait()
+		close(ages)
+	}()
+
+	var totalAge int
+	count := 0
+
+	for age := range ages {
+		totalAge += age
+		count++
+	}
+
+	averageAge := float64(totalAge) / float64(count)
+
+	response := Response{
+		Students: base,
+		AverAge:  averageAge,
+	}
 	if err := json.NewEncoder(w).Encode(base); err != nil {
 		http.Error(w, "Failed to encode json", http.StatusInternalServerError)
 		return
 	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
 }
 
 // вывод списка студентов, у которых ср. балл не ниже минимума
