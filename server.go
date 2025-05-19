@@ -15,6 +15,7 @@ import (
 type Response struct {
 	Students []utils.Student `json: "students`
 	AverAge  float64         `json: "average_age"`
+	MaxAge   int             `json: "max_age"`
 }
 
 var baseStud = []utils.Student{
@@ -114,6 +115,72 @@ func students(w http.ResponseWriter, req *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
+func studentAge(w http.ResponseWriter, req *http.Request) {
+	base, err := utils.GetStudents()
+	if err != nil {
+		http.Error(w, "Failed to get students", http.StatusInternalServerError)
+		return
+	}
+
+	if len(base) == 0 {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(Response{Students: []utils.Student{}, AverAge: 0, MaxAge: 0})
+		return
+	}
+
+	ageChan := make(chan int, len(base)) // для всех возрастов
+	avgChan := make(chan float64, 1)     // средний возраст
+	maxChan := make(chan int, 1)         // максимальный возраст
+	var wg sync.WaitGroup
+
+	wg.Add(1) //горутина для отправки возрастов
+	go func() {
+		defer wg.Done()
+		for _, student := range base {
+			ageChan <- student.Age
+		}
+		close(ageChan)
+	}()
+
+	wg.Add(1) //горутина для вычисления среднего возраста
+	go func() {
+		defer wg.Done()
+		var totalAge int
+		cnt := 0
+		for age := range ageChan {
+			totalAge += age
+			cnt++
+		}
+		avg := float64(totalAge) / float64(cnt)
+		avgChan <- avg
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		maxAge := 0
+		for age := range ageChan {
+			if age > maxAge {
+				maxAge = age
+			}
+		}
+		maxChan <- maxAge
+	}()
+
+	wg.Wait()
+
+	averageAge := <-avgChan
+	maxAge := <-maxChan
+
+	response := Response{
+		Students: base,
+		AverAge:  averageAge,
+		MaxAge:   maxAge,
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
 // вывод списка студентов, у которых ср. балл не ниже минимума
 func grade(w http.ResponseWriter, req *http.Request) {
 
@@ -164,7 +231,6 @@ func addStudent(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "Failed to encode json", http.StatusInternalServerError)
 		return
 	}
-
 }
 
 func main() {
@@ -174,6 +240,7 @@ func main() {
 	http.HandleFunc("/students/grade", grade)
 	http.HandleFunc("/student/add", addStudent)
 
+	http.HandleFunc("/students/age-stats", studentAge)
 	utils.LoadStudentFromFile(&baseStud)
 
 	if err := utils.InitDB(); err != nil {
