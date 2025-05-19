@@ -142,30 +142,35 @@ func studentAge(w http.ResponseWriter, req *http.Request) {
 		close(ageChan)
 	}()
 
+	var ages []int
+	for age := range ageChan {
+		ages = append(ages, age)
+	}
+
 	wg.Add(1) //горутина для вычисления среднего возраста
-	go func() {
+	go func(ages []int) {
 		defer wg.Done()
 		var totalAge int
 		cnt := 0
-		for age := range ageChan {
+		for _, age := range ages {
 			totalAge += age
 			cnt++
 		}
 		avg := float64(totalAge) / float64(cnt)
 		avgChan <- avg
-	}()
+	}(ages)
 
 	wg.Add(1)
-	go func() {
+	go func(ages []int) {
 		defer wg.Done()
 		maxAge := 0
-		for age := range ageChan {
+		for _, age := range ages {
 			if age > maxAge {
 				maxAge = age
 			}
 		}
 		maxChan <- maxAge
-	}()
+	}(ages)
 
 	wg.Wait()
 
