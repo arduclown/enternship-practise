@@ -12,10 +12,16 @@ import (
 	"github.com/arduclown/enternship-practise/utils"
 )
 
-type Response struct {
-	Students []utils.Student `json: "students`
+type ResponseAge struct {
+	Students []utils.Student `json: "students"`
 	AverAge  float64         `json: "average_age"`
 	MaxAge   int             `json: "max_age"`
+}
+
+type ResponseGrade struct {
+	Students  []utils.Student `json: "students"`
+	AverGrade float64         `json: "average_grade"`
+	MaxGrade  float64         `json: "max_grade"`
 }
 
 var baseStud = []utils.Student{
@@ -72,7 +78,7 @@ func students(w http.ResponseWriter, req *http.Request) {
 
 	if len(base) == 0 {
 		w.Header().Set("Content Type", "application/json")
-		json.NewEncoder(w).Encode(Response{Students: []utils.Student{}, AverAge: 0})
+		json.NewEncoder(w).Encode(ResponseAge{Students: []utils.Student{}, AverAge: 0})
 		return
 	}
 
@@ -102,7 +108,7 @@ func students(w http.ResponseWriter, req *http.Request) {
 
 	averageAge := float64(totalAge) / float64(count)
 
-	response := Response{
+	response := ResponseAge{
 		Students: base,
 		AverAge:  averageAge,
 	}
@@ -124,7 +130,7 @@ func studentAge(w http.ResponseWriter, req *http.Request) {
 
 	if len(base) == 0 {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(Response{Students: []utils.Student{}, AverAge: 0, MaxAge: 0})
+		json.NewEncoder(w).Encode(ResponseAge{Students: []utils.Student{}, AverAge: 0, MaxAge: 0})
 		return
 	}
 
@@ -177,13 +183,16 @@ func studentAge(w http.ResponseWriter, req *http.Request) {
 	averageAge := <-avgChan
 	maxAge := <-maxChan
 
-	response := Response{
+	response := ResponseAge{
 		Students: base,
 		AverAge:  averageAge,
 		MaxAge:   maxAge,
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		http.Error(w, "Failed to encode json", http.StatusInternalServerError)
+		return
+	}
 }
 
 // вывод списка студентов, у которых ср. балл не ниже минимума
@@ -238,12 +247,93 @@ func addStudent(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
+func gradeStats(w http.ResponseWriter, req *http.Request) {
+	base, err := utils.GetStudents()
+	if err != nil {
+		http.Error(w, "Failed to get students", http.StatusInternalServerError)
+		return
+	}
+
+	if len(base) == 0 {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(ResponseGrade{Students: []utils.Student{}, AverGrade: 0, MaxGrade: 0})
+		return
+	}
+
+	if req.Method != http.MethodGet {
+		http.Error(w, "Method not allowes", http.StatusMethodNotAllowed)
+		return
+	}
+
+	gradeChan := make(chan float64, len(base))
+	avgChan := make(chan float64, 1)
+	maxChan := make(chan float64, 1)
+
+	var wg sync.WaitGroup
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for _, student := range base {
+			gradeChan <- student.Grade
+		}
+		close(gradeChan)
+	}()
+
+	var grades []float64
+	for grade := range gradeChan {
+		grades = append(grades, grade)
+	}
+
+	wg.Add(1)
+	go func(grades []float64) {
+		defer wg.Done()
+		var totalGrade float64
+		cnt := 0
+		for _, grade := range grades {
+			totalGrade += grade
+			cnt++
+		}
+		avg := float64(totalGrade) / float64(cnt)
+		avgChan <- avg
+	}(grades)
+
+	wg.Add(1)
+	go func(grades []float64) {
+		defer wg.Done()
+		maxGrade := 0.
+		for _, grade := range grades {
+			if grade > maxGrade {
+				maxGrade = grade
+			}
+		}
+		maxChan <- float64(maxGrade)
+	}(grades)
+
+	wg.Wait()
+
+	averageGrade := <-avgChan
+	maxGrade := <-maxChan
+
+	response := ResponseGrade{
+		Students:  base,
+		AverGrade: averageGrade,
+		MaxGrade:  maxGrade,
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		http.Error(w, "Failed to encode json", http.StatusInternalServerError)
+		return
+	}
+}
+
 func main() {
 	http.HandleFunc("/hello", hello)
 	http.HandleFunc("/student", student)
 	http.HandleFunc("/students", students)
 	http.HandleFunc("/students/grade", grade)
 	http.HandleFunc("/student/add", addStudent)
+	http.HandleFunc("/students/grade-stats", gradeStats)
 
 	http.HandleFunc("/students/age-stats", studentAge)
 	utils.LoadStudentFromFile(&baseStud)
